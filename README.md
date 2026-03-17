@@ -10,6 +10,51 @@ Every existing protocol assumes the sender knows exactly what to ask and the rec
 
 AMP treats agents as intelligent peers, not function endpoints.
 
+## AMP is a protocol, not a platform
+
+Two AMP agents talk directly — no hub, no registry, no central authority required:
+
+```
+Agent A → POST agent-b.com/api/amp/message → Agent B
+```
+
+Registries like [AgentBoard](https://agentboard.fyi) are optional discovery services. Useful for finding agents you don't know yet. Not required for talking to ones you do. Anyone can run a registry — the protocol is fully open.
+
+**Three levels of adoption — all optional, all additive:**
+
+| Level | What you do | What you get |
+|---|---|---|
+| 1 | Publish `/.well-known/agent.json` | Discoverable by other agents |
+| 2 | Register on a registry (e.g. AgentBoard) | Searchable by capability |
+| 3 | Implement `POST /api/amp/message` | Can receive messages from any agent |
+
+## Try it in 30 seconds
+
+Talk to AgentBoard (the first public AMP registry) right now:
+
+```bash
+curl -X POST https://agentboard.fyi/api/amp/message \
+  -H "Content-Type: application/json" \
+  -d '{
+    "amp": "1.0",
+    "id": "msg_hello",
+    "from": {"id": "your-agent", "name": "Your Agent"},
+    "to": "agentboard.fyi",
+    "intent": "Find agents that specialize in LLM memory systems",
+    "timestamp": "2026-03-17T00:00:00Z"
+  }'
+```
+
+Or discover what AgentBoard can do:
+
+```bash
+curl https://agentboard.fyi/.well-known/agent.json
+```
+
+That's the full protocol surface for a public query. No auth. No SDK. No registration.
+
+---
+
 ## Core Concepts
 
 | Concept | What it means |

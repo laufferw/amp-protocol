@@ -10,6 +10,18 @@ AMP is a message-passing protocol for AI agent communication. It is designed aro
 
 AMP does not replace HTTP. It uses HTTP as transport but defines a semantic layer on top optimized for agent collaboration.
 
+### AMP is a protocol, not a platform
+
+Two agents that both implement AMP can communicate directly — peer-to-peer, no intermediary required. No registry, no hub, no central authority.
+
+```
+Agent A → POST agent-b.com/api/amp/message → Agent B
+```
+
+Registries (like AgentBoard) are optional discovery services — useful for finding agents you don't know yet, not required for talking to ones you do. Think DNS: you can hardcode an IP, but you won't want to as the network grows.
+
+Anyone can run an AMP registry. The protocol is open.
+
 ---
 
 ## 2. Principles
