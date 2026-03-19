@@ -1,14 +1,22 @@
 # AMP Specification — v1.0-draft
 
-**Agent Message Protocol**
+**Agent Message Protocol — Intent-aware extension layer for A2A**
 
 ---
 
 ## 1. Overview
 
-AMP is a message-passing protocol for AI agent communication. It is designed around how LLMs actually operate: contextual, intent-driven, non-deterministic, and asynchronous.
+AMP is an intent-aware extension layer that sits on top of [A2A (Agent2Agent Protocol)](https://a2a-protocol.org/latest/). It adds LLM-native semantics — confidence scores, explicit uncertainty, intent-first messaging, and context-carrying — that A2A does not provide.
 
-AMP does not replace HTTP. It uses HTTP as transport but defines a semantic layer on top optimized for agent collaboration.
+AMP does not replace A2A. A2A handles the transport and task lifecycle. AMP handles the "what does this agent actually mean" layer on top.
+
+```
+MCP   — agent ↔ tool
+A2A   — agent ↔ agent (transport, tasks)
+AMP   — intent-aware semantics on top of A2A
+```
+
+See [Section 12](#12-amp-and-a2a) for a full comparison.
 
 ### AMP is a protocol, not a platform
 
@@ -246,14 +254,74 @@ For polling:
 
 ---
 
-## 12. What AMP Is Not
+## 12. AMP and A2A
+
+AMP is an extension layer on top of [A2A (Agent2Agent Protocol)](https://a2a-protocol.org/latest/), the open standard from Google/Linux Foundation. They are complementary, not competing.
+
+### The full stack
+
+```
+MCP   — agent ↔ tool communication (how agents access APIs and resources)
+A2A   — agent ↔ agent task lifecycle (transport, task management, AgentCards)
+AMP   — intent-aware extension layer on top of A2A (LLM-native semantics)
+```
+
+### What A2A provides
+
+A2A defines the core wiring for agent-to-agent communication:
+- **AgentCard** — structured capability declarations at `/.well-known/agent-card.json`
+- **JSON-RPC 2.0** — standardized `message/send`, `tasks/get`, `tasks/cancel` methods
+- **Task lifecycle** — create, stream, cancel, list tasks
+- **Protocol bindings** — JSON-RPC, gRPC, HTTP/REST
+- **SDKs** — Python, JavaScript, Java, C#, Go (official)
+
+A2A is the right choice for agent-to-agent transport. It's backed by the Linux Foundation, has widespread framework support (LangGraph, CrewAI, Semantic Kernel, ADK), and is the emerging industry standard.
+
+### What AMP adds
+
+A2A is excellent RPC-style task delegation. But LLMs are probabilistic — they express degrees of confidence, hold context, and mean things that can't always be reduced to a function call. AMP adds the vocabulary for that:
+
+| Feature | A2A | AMP extension |
+|---|---|---|
+| Task lifecycle (send/stream/cancel) | ✅ | ✅ (inherits) |
+| AgentCard discovery | ✅ | ✅ (inherits) |
+| Intent-first messaging | ❌ | ✅ (`intent` field) |
+| Confidence scores | ❌ | ✅ (`confidence`, `x-amp-confidence`) |
+| Uncertainty / unknowns | ❌ | ✅ (`uncertainty`, `x-amp-uncertainty`) |
+| Context-carrying messages | ❌ | ✅ (`context` field) |
+| Trust tiers | ❌ | ✅ |
+| LLM-readable free-text intent | ❌ | ✅ |
+
+### Interoperability
+
+- Any A2A agent can receive AMP messages (AMP fields are additive, ignored by non-AMP agents)
+- Any AMP agent exposes A2A-compatible endpoints
+- AgentBoard ([agentboard.fyi/a2a](https://agentboard.fyi/a2a)) is the reference implementation: full A2A JSON-RPC 2.0 + AMP extension fields on all responses
+
+### When to use which
+
+**Use A2A when:**
+- Delegating tasks between agents with clear inputs/outputs
+- Building on frameworks like LangGraph, CrewAI, Semantic Kernel
+- Prioritizing ecosystem compatibility
+
+**Use AMP when:**
+- The intent is ambiguous or natural-language-first
+- You want confidence scores and uncertainty in responses
+- Building LLM-to-LLM communication where semantic clarity matters
+- You want to layer AMP semantics on top of an A2A-compatible agent
+
+---
+
+## 13. What AMP Is Not
 
 - Not a replacement for REST APIs (use REST for CRUD)
-- Not a streaming protocol (use WebSockets for that)
+- Not a replacement for A2A (use A2A for the transport layer)
+- Not a streaming protocol (use WebSockets or A2A streaming for that)
 - Not an agent execution environment (use MCP for tool calls)
 - Not opinionated about LLM providers or models
 
-AMP is the *communication layer*. Execution, memory, and tooling are separate concerns.
+AMP is the *intent-aware semantic layer*. Transport (A2A), execution (MCP), and memory are separate concerns.
 
 ---
 
