@@ -61,7 +61,7 @@ interface AmpResponse {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const AGENT_URL = "http://localhost:8765"
+const AGENT_URL = "https://amp-agent.agentboard.fyi"
 const SENDER_ID = "amp-demo.interactive"
 const SENDER_NAME = "AMP Interactive Demo"
 

@@ -13,23 +13,38 @@ Then in another terminal:
     python client.py
 """
 
-import sys
-import time
+import ast
+import operator
 import uuid
 from datetime import datetime, timezone
 
 from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import uvicorn
 
 # ─── Agent Identity ────────────────────────────────────────────────────────────
 
-AGENT_ID = "reference-agent.amp-protocol.local"
+AGENT_ID = "amp-agent.agentboard.fyi"
 AGENT_NAME = "AMP Reference Agent"
 AGENT_VERSION = "1.0.0"
 AGENT_PORT = 8765
+AGENT_PUBLIC_URL = "https://amp-agent.agentboard.fyi"
 
 app = FastAPI(title=AGENT_NAME)
+
+# CORS — allow browser requests from agentboard.fyi and localhost
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "https://agentboard.fyi",
+        "https://amp-demo.agentboard.fyi",
+        "http://localhost:5173",
+        "http://localhost:3000",
+    ],
+    allow_methods=["GET", "POST"],
+    allow_headers=["Content-Type"],
+)
 
 
 # ─── Capability Manifest ───────────────────────────────────────────────────────
@@ -52,7 +67,7 @@ AGENT_MANIFEST = {
     "trust_tiers": ["public"],
     "protocol": "amp/1.0",
     "endpoints": {
-        "message": f"http://localhost:{AGENT_PORT}/api/amp/message",
+        "message": f"{AGENT_PUBLIC_URL}/api/amp/message",
     },
     "updated_at": "2026-01-01T00:00:00Z",
 }
@@ -112,14 +127,18 @@ async def receive_message(request: Request):
                 request_id=request_id,
             )
         try:
-            # Safe evaluation: only allow numbers and basic operators
-            safe_expr = "".join(c for c in expression if c in "0123456789+-*/(). ")
-            result = eval(safe_expr)  # noqa: S307 — sanitized above
+            result = safe_eval_math(expression)
             return amp_ok(
                 request_id=request_id,
                 result={"expression": expression, "result": result},
                 confidence=1.0,
                 trace_id=trace_id,
+            )
+        except ValueError as e:
+            return amp_error(
+                "capability_mismatch",
+                str(e),
+                request_id=request_id,
             )
         except Exception as e:
             return amp_error(
@@ -166,6 +185,58 @@ async def receive_message(request: Request):
 
 
 # ─── Capabilities ──────────────────────────────────────────────────────────────
+
+def safe_eval_math(expression: str) -> float:
+    """
+    Safely evaluate a math expression using AST parsing.
+    Only allows: numbers, +, -, *, /, //, **, unary minus, parentheses.
+    No eval(), no exec(), no builtins — completely sandboxed.
+    """
+    _ALLOWED_OPS = {
+        ast.Add: operator.add,
+        ast.Sub: operator.sub,
+        ast.Mult: operator.mul,
+        ast.Div: operator.truediv,
+        ast.FloorDiv: operator.floordiv,
+        ast.Pow: operator.pow,
+        ast.USub: operator.neg,
+        ast.UAdd: operator.pos,
+    }
+    MAX_EXPR_LEN = 200
+
+    if len(expression) > MAX_EXPR_LEN:
+        raise ValueError(f"Expression too long (max {MAX_EXPR_LEN} chars)")
+
+    def _eval(node):
+        if isinstance(node, ast.Constant):
+            if isinstance(node.value, (int, float)):
+                return node.value
+            raise ValueError(f"Unsupported literal: {node.value!r}")
+        elif isinstance(node, ast.BinOp):
+            op_type = type(node.op)
+            if op_type not in _ALLOWED_OPS:
+                raise ValueError(f"Operator not allowed: {op_type.__name__}")
+            left = _eval(node.left)
+            right = _eval(node.right)
+            # Guard against dangerous exponents
+            if op_type == ast.Pow and abs(right) > 100:
+                raise ValueError("Exponent too large (max 100)")
+            return _ALLOWED_OPS[op_type](left, right)
+        elif isinstance(node, ast.UnaryOp):
+            op_type = type(node.op)
+            if op_type not in _ALLOWED_OPS:
+                raise ValueError(f"Unary operator not allowed: {op_type.__name__}")
+            return _ALLOWED_OPS[op_type](_eval(node.operand))
+        else:
+            raise ValueError(f"Unsupported expression type: {type(node).__name__}")
+
+    try:
+        tree = ast.parse(expression.strip(), mode="eval")
+    except SyntaxError as e:
+        raise ValueError(f"Invalid expression syntax: {e}")
+
+    return _eval(tree.body)
+
 
 def naive_summarize(text: str) -> str:
     """
