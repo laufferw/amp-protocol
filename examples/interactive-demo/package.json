@@ -1,0 +1,28 @@
+{
+  "name": "amp-interactive-demo",
+  "version": "1.0.0",
+  "description": "Interactive AMP protocol demo — runs in browser (Gridland) and terminal (Node.js)",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "terminal": "node --input-type=module < terminal-demo.mjs",
+    "start": "node terminal-demo.mjs"
+  },
+  "dependencies": {
+    "@gridland/demo": "^0.2.53",
+    "@gridland/utils": "^0.2.53",
+    "@gridland/web": "^0.2.53",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "typescript": "^5.7.0",
+    "vite": "^6.0.0"
+  }
+}
