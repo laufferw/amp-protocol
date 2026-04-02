@@ -157,6 +157,7 @@ Agents publish a manifest at `GET /.well-known/agent.json`:
   "capabilities": string[],        // required — what this agent can do
   "accepts": string[],             // optional — message types accepted
   "trust_tiers": string[],         // optional — what trust levels are supported
+  "identity": object,              // optional — identity anchors (see Section 8.0)
   "protocol": "amp/1.0",           // required
   "endpoints": {
     "message": string,             // required — URL for AMP messages
@@ -188,6 +189,62 @@ An orchestrating agent can read these and route intelligently without a rigid re
 ---
 
 ## 8. Trust Model
+
+### 8.0 Identity Anchors (optional)
+
+Agent cards may include an optional `identity` block to declare verifiable identity anchors. This is protocol-agnostic — consumers pick what they recognize, ignore what they don't.
+
+```json
+{
+  "amp": "1.0",
+  "id": "agentboard.fyi",
+  "identity": {
+    "did": "did:web:agentboard.fyi",
+    "certs": [
+      {
+        "type": "Ed25519",
+        "public_key": "<base64url-encoded public key>",
+        "key_id": "<fingerprint>"
+      }
+    ],
+    "anchors": [
+      {
+        "type": "wtrmrk",
+        "uid": "<wtrmrk_uid>"
+      },
+      {
+        "type": "custom",
+        "namespace": "example.com/identity",
+        "uid": "<opaque-id>"
+      }
+    ]
+  }
+}
+```
+
+**Fields:**
+
+| Field | Type | Description |
+|---|---|---|
+| `did` | string | W3C Decentralized Identifier (DID). Any DID method accepted (`did:web`, `did:key`, `did:plc`, etc.) |
+| `certs` | array | Cryptographic public key declarations. `type` is the algorithm (`Ed25519`, `secp256k1`, etc.) |
+| `anchors` | array | Extensible identity anchor list. `type` identifies the system; all other fields are system-defined |
+
+**Design rules:**
+- All fields are optional. Omit the entire `identity` block if unused.
+- Consumers MUST ignore anchor types they don't recognize (open world).
+- `did` is the preferred canonical identifier when present — widely supported and self-certifying via `did:key` / `did:web`.
+- `anchors` is an escape hatch for ecosystem-specific identity systems. The `wtrmrk` type (proposed by WTRMRK) uses a `wtrmrk_uid` field. New types register by convention, not by a central registry.
+- Verification is out of scope for AMP — how to validate a DID or anchor is left to the verifying agent and the underlying identity system.
+
+**Example anchor types:**
+
+| `type` | System | Key field |
+|---|---|---|
+| `wtrmrk` | WTRMRK identity network | `uid` |
+| `did` | W3C DID (redundant shorthand) | `method`, `value` |
+| `x509` | X.509 certificate | `pem` or `fingerprint` |
+| `custom` | Any system | `namespace` + `uid` |
 
 ### 8.1 Tiers
 
